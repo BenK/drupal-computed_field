@@ -27,8 +27,8 @@ function computed_field_field_settings_form($field) {
     '#type' => 'textarea',
     '#rows' => 15,
     '#title' => t('Computed Code'),
-    '#description' => t('The variables available to your code are: ') .'<code>&amp;$node, $field, and &amp;$node_field</code>'. t('. To set the value of the field, set ') .'<code>$node_field[0][\'value\']</code>'. t('. Here\'s a simple example which sets the computed field\'s value to the value of the sum of the number fields field_a and field_b: ') .'<code>$node_field[0][\'value\'] = $node->field_a[0][\'value\'] + $node->field_b[0][\'value\'];</code>. '. t('Alternately, this code can be supplied by your own custom function named @compute_func().', array('@compute_func' => $compute_func)),
-    '#default_value' => !empty($field['code']) ? $field['code'] : '$node_field[0][\'value\'] = "";',
+    '#description' => t('The variables available to your code are: ') .'<code>&amp;$node, $field, and &amp;$entity_field</code>'. t('. To set the value of the field, set ') .'<code>$entity_field[0][\'value\']</code>'. t('. Here\'s a simple example which sets the computed field\'s value to the value of the sum of the number fields field_a and field_b: ') .'<code>$entity_field[0][\'value\'] = $node->field_a[0][\'value\'] + $node->field_b[0][\'value\'];</code>. '. t('Alternately, this code can be supplied by your own custom function named @compute_func().', array('@compute_func' => $compute_func)),
+    '#default_value' => !empty($field['code']) ? $field['code'] : '$entity_field[0][\'value\'] = "";',
     '#access' => !function_exists($compute_func),
   );
   if (function_exists($compute_func)) {
@@ -40,8 +40,8 @@ function computed_field_field_settings_form($field) {
   $form['display_format'] = array(
     '#type' => 'textarea',
     '#title' => t('Display Format'),
-    '#description' => t('This code should assign a string to the $display variable, which will be printed as the value of the field. The stored value of the field is in $node_field_item[\'value\'].  Note: this code has no effect if you use the "Computed Value" formatter option. Alternately, this code can be supplied by your own custom function named @display_func().', array('@display_func' => $display_func)) ,
-    '#default_value' => !empty($field['display_format']) ? $field['display_format'] : '$display = $node_field_item[\'value\'];',
+    '#description' => t('This code should assign a string to the $display variable, which will be printed as the value of the field. The stored value of the field is in $entity_field_item[\'value\'].  Note: this code has no effect if you use the "Computed Value" formatter option. Alternately, this code can be supplied by your own custom function named @display_func().', array('@display_func' => $display_func)) ,
+    '#default_value' => !empty($field['display_format']) ? $field['display_format'] : '$display = $entity_field_item[\'value\'];',
     '#access' => !function_exists($display_func),
   );
   if (function_exists($display_func)) {
@@ -169,11 +169,11 @@ function computed_field_field_settings_views_data($field) {
   }
 }
 
-function _computed_field_compute_value(&$node, $field, &$node_field) {
+function _computed_field_compute_value(&$node, $field, &$entity_field) {
   // Allow the value to be computed from code not stored in DB
   $compute_func = 'computed_field_'. $field['field_name'] .'_compute';
   if (function_exists($compute_func)) {
-    $compute_func($node, $field, $node_field);
+    $compute_func($node, $field, $entity_field);
   }
   else {
     if (isset($field['code'])) {
@@ -185,30 +185,30 @@ function _computed_field_compute_value(&$node, $field, &$node_field) {
 /**
  * Implements field hook_field_load().
  */
-function computed_field_field_load($node, $field, &$node_field, $teaser, $page) {
+function computed_field_field_load($node, $field, &$entity_field, $teaser, $page) {
   // compute field on load if it isn't stored in the database
   if (!$field['store']) {
-    _computed_field_compute_value($node, $field, $node_field);
-    return array($field['field_name'] => $node_field);
+    _computed_field_compute_value($node, $field, $entity_field);
+    return array($field['field_name'] => $entity_field);
   }
 }
 
 /**
  * Implements field hook_field_sanitize().
  */
-function computed_field_field_sanitize($node, $field, &$node_field, $teaser, $page) {
+function computed_field_field_sanitize($node, $field, &$entity_field, $teaser, $page) {
   // compute field for node previews
   if ($node->build_mode == NODE_BUILD_PREVIEW) {
-    _computed_field_compute_value($node, $field, $node_field);
+    _computed_field_compute_value($node, $field, $entity_field);
   }
 }
 
 /**
  * Implements field hook_field_view().
  */
-function computed_field_field_view($node, $field, &$node_field, $teaser, $page) {
+function computed_field_field_view($node, $field, &$entity_field, $teaser, $page) {
   $items = array();
-  foreach ($node_field as $delta => $item) {
+  foreach ($entity_field as $delta => $item) {
     $items[$delta]['view'] = content_format($field, $item, 'default', $node);
   }
   return theme('field', $node, $field, $items, $teaser, $page);
@@ -217,15 +217,15 @@ function computed_field_field_view($node, $field, &$node_field, $teaser, $page) 
 /**
  * Implements field hook_field_insert().
  */
-function computed_field_field_insert($node, $field, &$node_field, $teaser, $page) {
-  _computed_field_compute_value($node, $field, $node_field);
+function computed_field_field_insert($node, $field, &$entity_field, $teaser, $page) {
+  _computed_field_compute_value($node, $field, $entity_field);
 }
 
 /**
  * Implements field hook_field_update().
  */
-function computed_field_field_update($node, $field, &$node_field, $teaser, $page) {
-  _computed_field_compute_value($node, $field, $node_field);
+function computed_field_field_update($node, $field, &$entity_field, $teaser, $page) {
+  _computed_field_compute_value($node, $field, $entity_field);
 }
 
 /**
@@ -309,7 +309,7 @@ function computed_field_field_formatter_info() {
 function theme_computed_field_formatter_default($element) {
   $field = field_info_fields($element['#field_name']);
   // For "some" backwards compatibility
-  $node_field_item['value'] = $element['#item']['value'];
+  $entity_field_item['value'] = $element['#item']['value'];
 
   // Allow the value to be formated from code not stored in DB
   $display_func = 'computed_field_'. $field['field_name'] .'_display';
@@ -328,7 +328,7 @@ function theme_computed_field_formatter_default($element) {
 function theme_computed_field_formatter_plain($element) {
   $field = field_info_fields($element['#field_name']);
   // For "some" backwards compatibility
-  $node_field_item['value'] = $element['#item']['value'];
+  $entity_field_item['value'] = $element['#item']['value'];
 
   // Allow the value to be formated from code not stored in DB
   $display_func = 'computed_field_'. $field['field_name'] .'_display';
@@ -347,7 +347,7 @@ function theme_computed_field_formatter_plain($element) {
 function theme_computed_field_formatter_markup($element) {
   $field = field_info_fields($element['#field_name']);
   // For "some" backwards compatibility
-  $node_field_item['value'] = $element['#item']['value'];
+  $entity_field_item['value'] = $element['#item']['value'];
 
   // Allow the value to be formated from code not stored in DB
   $display_func = 'computed_field_'. $field['field_name'] .'_display';
