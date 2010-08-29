@@ -18,17 +18,18 @@ function computed_field_field_info() {
 /**
  * Implements of hook_field_settings_form().
  */
-function computed_field_field_settings_form($field) {
+function computed_field_field_settings_form($field, $instance, $has_data) {
   $form = array();
   $compute_func = 'computed_field_'. $field['field_name'] .'_compute';
   $display_func = 'computed_field_'. $field['field_name'] .'_display';
+  $settings = $field['settings'];
   // these next 3 have been moved from widget to field, so they copy default values from widget
   $form['code'] = array(
     '#type' => 'textarea',
     '#rows' => 15,
     '#title' => t('Computed Code'),
     '#description' => t('The variables available to your code are: ') .'<code>&amp;$node, $field, and &amp;$entity_field</code>'. t('. To set the value of the field, set ') .'<code>$entity_field[0][\'value\']</code>'. t('. Here\'s a simple example which sets the computed field\'s value to the value of the sum of the number fields field_a and field_b: ') .'<code>$entity_field[0][\'value\'] = $node->field_a[0][\'value\'] + $node->field_b[0][\'value\'];</code>. '. t('Alternately, this code can be supplied by your own custom function named @compute_func().', array('@compute_func' => $compute_func)),
-    '#default_value' => !empty($field['code']) ? $field['code'] : '$entity_field[0][\'value\'] = "";',
+    '#default_value' => !empty($settings['code']) ? $settings['code'] : '$entity_field[0][\'value\'] = "";',
     '#access' => !function_exists($compute_func),
   );
   if (function_exists($compute_func)) {
@@ -41,7 +42,7 @@ function computed_field_field_settings_form($field) {
     '#type' => 'textarea',
     '#title' => t('Display Format'),
     '#description' => t('This code should assign a string to the $display variable, which will be printed as the value of the field. The stored value of the field is in $entity_field_item[\'value\'].  Note: this code has no effect if you use the "Computed Value" formatter option. Alternately, this code can be supplied by your own custom function named @display_func().', array('@display_func' => $display_func)) ,
-    '#default_value' => !empty($field['display_format']) ? $field['display_format'] : '$display = $entity_field_item[\'value\'];',
+    '#default_value' => !empty($settings['display_format']) ? $settings['display_format'] : '$display = $entity_field_item[\'value\'];',
     '#access' => !function_exists($display_func),
   );
   if (function_exists($display_func)) {
@@ -53,38 +54,38 @@ function computed_field_field_settings_form($field) {
   $form['store'] = array(
     '#type' => 'checkbox',
     '#title' => t('Store using the database settings below'),
-    '#default_value' => is_numeric($field['store']) ? $field['store'] : 1 ,
+    '#default_value' => is_numeric($settings['store']) ? $settings['store'] : 1 ,
   );
   $form['database'] = array('#type' => 'fieldset', '#title' => t('Database Storage Settings'));
   $form['database']['data_type'] = array(
     '#type' => 'radios',
     '#title' => t('Data Type'),
     '#description' => t('The SQL datatype to store this field in.'),
-    '#default_value' => !empty($field['data_type']) ? $field['data_type'] : 'varchar',
+    '#default_value' => !empty($settings['data_type']) ? $settings['data_type'] : 'varchar',
     '#options' => array('int' => 'int', 'float' => 'float', 'varchar' => 'varchar', 'text' => 'text', 'longtext' => 'longtext'),
     '#required' => FALSE,
   );
   $form['database']['data_length'] = array(
     '#type' => 'textfield',
     '#title' => t('Data Length'),
-    '#default_value' => !empty($field['data_length']) ? $field['data_length'] : NULL,
+    '#default_value' => !empty($settings['data_length']) ? $settings['data_length'] : NULL,
     '#required' => FALSE,
   );
   $form['database']['data_default'] = array(
     '#type' => 'textfield',
     '#title' => t('Default Value'),
-    '#default_value' => $field['data_default'],
+    '#default_value' => $settings['data_default'],
     '#required' => FALSE,
   );
   $form['database']['data_not_NULL'] = array(
     '#type' => 'checkbox',
     '#title' => t('Not NULL'),
-    '#default_value' => is_numeric($field['data_not_NULL']) ? $field['data_not_NULL'] : FALSE,
+    '#default_value' => is_numeric($settings['data_not_NULL']) ? $settings['data_not_NULL'] : FALSE,
   );
   $form['database']['data_sortable'] = array(
     '#type' => 'checkbox',
     '#title' => t('Sortable'),
-    '#default_value' => is_numeric($field['data_sortable']) ? $field['data_sortable'] : TRUE,
+    '#default_value' => is_numeric($settings['data_sortable']) ? $settings['data_sortable'] : TRUE,
   );
   return $form;
 }
@@ -92,12 +93,13 @@ function computed_field_field_settings_form($field) {
 /**
  * Implements of hook_field_settings_validate().
  */
-function computed_field_field_settings_validate($field) {
-  if ($field['store']) {
-    if (empty($field['data_type'])) {
+  function computed_field_field_settings_validate($field, $instance, $has_data) {
+  $settings = $field['settings'];
+  if ($settings['store']) {
+    if (empty($settings['data_type'])) {
       form_set_error('data_type', t('To store this field in the database, please specify a data type.'));
     }
-    if (!($field['data_type'] == 'text' || $field['data_type'] == 'longtext') && empty($field['data_length'])) {
+    if (!($settings['data_type'] == 'text' || $settings['data_type'] == 'longtext') && empty($settings['data_length'])) {
       form_set_error('data_length', t('To store this field in the database, please specify the data length.'));
     }
   }
@@ -108,23 +110,24 @@ function computed_field_field_settings_validate($field) {
  */
 function computed_field_field_schema($field) {
   if ($field['type'] == 'computed') {
-    if ($field['storage']) {
+    $settings = $field['settings'];
+    if ($settings['store']) {
       $columns = array('value' => array());
-      if ($field['data_type'] == 'longtext') {
+      if ($settings['data_type'] == 'longtext') {
         $columns['value']['type'] = 'text';
         $columns['value']['size'] = 'big';
       }
       else {
-        $columns['value']['type'] = isset($field['data_type']) ? $field['data_type'] : 'varchar';
+        $columns['value']['type'] = isset($settings['data_type']) ? $settings['data_type'] : 'varchar';
       }
       // text and longtext should not have a length, so we ignore it
-      if (!($field['data_type'] == 'text' || $field['data_type'] == 'longtext')) {
-        $columns['value']['length'] = isset($field['data_length']) ? $field['data_length'] : 32;
+      if (!($field['data_type'] == 'text' || $settings['data_type'] == 'longtext')) {
+        $columns['value']['length'] = isset($settings['data_length']) ? $settings['data_length'] : 32;
       }
-      $columns['value']['not NULL'] = isset($field['data_not_NULL']) ? $field['data_not_NULL'] : TRUE;
-      $columns['value']['sortable'] = isset($field['data_sortable']) ? $field['data_sortable'] : FALSE;
+      $columns['value']['not NULL'] = isset($settings['data_not_NULL']) ? $settings['data_not_NULL'] : TRUE;
+      $columns['value']['sortable'] = isset($settings['data_sortable']) ? $settings['data_sortable'] : FALSE;
       if ($field['data_default'] != '')  {
-        $columns['value']['default'] = $field['data_default'];
+        $columns['value']['default'] = $settings['data_default'];
       }
     }
   }
@@ -170,14 +173,15 @@ function computed_field_field_settings_views_data($field) {
 }
 
 function _computed_field_compute_value(&$node, $field, &$entity_field) {
+  $settings = $field['settings'];
   // Allow the value to be computed from code not stored in DB
   $compute_func = 'computed_field_'. $field['field_name'] .'_compute';
   if (function_exists($compute_func)) {
     $compute_func($node, $field, $entity_field);
   }
   else {
-    if (isset($field['code'])) {
-      eval($field['code']);
+    if (isset($settings['code'])) {
+      eval($settings['code']);
     }
   }
 }
@@ -186,8 +190,9 @@ function _computed_field_compute_value(&$node, $field, &$entity_field) {
  * Implements field hook_field_load().
  */
 function computed_field_field_load($node, $field, &$entity_field, $teaser, $page) {
+  $settings = $field['settings'];
   // compute field on load if it isn't stored in the database
-  if (!$field['store']) {
+  if (!$settings['store']) {
     _computed_field_compute_value($node, $field, $entity_field);
     return array($field['field_name'] => $entity_field);
   }
