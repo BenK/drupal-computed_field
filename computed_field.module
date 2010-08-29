@@ -204,7 +204,7 @@ function computed_field_field_load($entity_type, $entity, $field, $instance, $la
  */
 function computed_field_field_sanitize($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
   // compute field for node previews
-  if ($node->build_mode == NODE_BUILD_PREVIEW) {
+  if ($entity->build_mode == NODE_BUILD_PREVIEW) {
     _computed_field_compute_value($entity_type, $entity, $field, $instance, $langcode, $items, &$errors);
   }
 }
@@ -223,7 +223,7 @@ function computed_field_field_view($entity_type, $entity, $field, $instance, $la
 /**
  * Implements field hook_field_insert().
  */
-function computed_field_field_insert($entity_type, $entity, $field, $instance, $langcode, $items, &$errors)) {
+function computed_field_field_insert($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
   _computed_field_compute_value($entity_type, $entity, $field, $instance, $langcode, $items, &$errors);
 }
 
