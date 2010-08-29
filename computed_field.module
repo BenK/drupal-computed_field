@@ -173,12 +173,12 @@ function computed_field_field_settings_views_data($field) {
   }
 }
 
-function _computed_field_compute_value($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+function _computed_field_compute_value($entity_type, $entity, $field, $instance, $langcode, &$items, &$errors) {
   $settings = $field['settings'];
   // Allow the value to be computed from code not stored in DB
   $compute_func = 'computed_field_'. $field['field_name'] .'_compute';
   if (function_exists($compute_func)) {
-    $compute_func($node, $field, $entity_field);
+    $compute_func($entity_type, $entity, $field, $instance, $langcode, $items, &$errors);
   }
   else {
     if (isset($settings['code'])) {
@@ -190,7 +190,7 @@ function _computed_field_compute_value($entity_type, $entity, $field, $instance,
 /**
  * Implements field hook_field_load().
  */
-function computed_field_field_load($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+function computed_field_field_load($entity_type, $entity, $field, $instance, $langcode, &$items, &$errors) {
   $settings = $field['settings'];
   // compute field on load if it isn't stored in the database
   if (!$settings['store']) {
@@ -202,7 +202,7 @@ function computed_field_field_load($entity_type, $entity, $field, $instance, $la
 /**
  * Implements field hook_field_sanitize().
  */
-function computed_field_field_sanitize($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+function computed_field_field_sanitize($entity_type, $entity, $field, $instance, $langcode, &$items, &$errors) {
   // compute field for node previews
   if ($entity->build_mode == NODE_BUILD_PREVIEW) {
     _computed_field_compute_value($entity_type, $entity, $field, $instance, $langcode, $items, &$errors);
@@ -212,7 +212,7 @@ function computed_field_field_sanitize($entity_type, $entity, $field, $instance,
 /**
  * Implements field hook_field_view().
  */
-function computed_field_field_view($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+function computed_field_field_view($entity_type, $entity, $field, $instance, $langcode, &$items, &$errors) {
   $items = array();
   foreach ($entity_field as $delta => $item) {
     $items[$delta]['view'] = content_format($field, $item, 'default', $node);
@@ -223,14 +223,14 @@ function computed_field_field_view($entity_type, $entity, $field, $instance, $la
 /**
  * Implements field hook_field_insert().
  */
-function computed_field_field_insert($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+function computed_field_field_insert($entity_type, $entity, $field, $instance, $langcode, &$items, &$errors) {
   _computed_field_compute_value($entity_type, $entity, $field, $instance, $langcode, $items, &$errors);
 }
 
 /**
  * Implements field hook_field_update().
  */
-function computed_field_field_update($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+function computed_field_field_update($entity_type, $entity, $field, $instance, $langcode, &$items, &$errors) {
   _computed_field_compute_value($entity_type, $entity, $field, $instance, $langcode, $items, &$errors);
 }
 
